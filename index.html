@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GasClock — When Is Ethereum Gas Cheapest? Live 7-Day Heatmap</title>
+<meta name="description" content="A live Ethereum gas heatmap built from 7 days of on-chain data. Find the cheapest hour to send a transaction, refreshed every 15 minutes. No wallet, no signup, no tracking.">
+<meta name="robots" content="index,follow">
+<meta property="og:title" content="GasClock — When Is Ethereum Gas Cheapest?">
+<meta property="og:description" content="7 days of on-chain base fees, aggregated into a heatmap that shows the cheapest hour to transact.">
+<meta property="og:type" content="website">
+<style>
+  :root{
+    --bg:#ffffff; --panel:#f7f8f9; --line:#e3e5e8;
+    --ink:#16181d; --muted:#6b7280; --faint:#9aa1ab;
+    --accent:#0f766e; --accent-soft:#e6f2f0;
+    --radius:10px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0d0f12; --panel:#15181d; --line:#252a31;
+      --ink:#e6e8eb; --muted:#9aa1ab; --faint:#6b7280;
+      --accent:#2dd4bf; --accent-soft:#12302c;
+    }
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans SC",sans-serif;
+  }
+  .wrap{max-width:920px;margin:0 auto;padding:0 20px}
+  header{border-bottom:1px solid var(--line);padding:18px 0}
+  header .wrap{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+  .brand{font-weight:600;letter-spacing:-.01em;font-size:17px}
+  .brand span{color:var(--accent)}
+  header p{margin:0;color:var(--muted);font-size:13px}
+  h1{font-size:28px;line-height:1.25;letter-spacing:-.02em;margin:36px 0 10px;font-weight:600}
+  h2{font-size:17px;margin:40px 0 12px;font-weight:600;letter-spacing:-.01em}
+  h3{font-size:14px;margin:22px 0 6px;font-weight:600}
+  p{margin:0 0 14px}
+  .lede{color:var(--muted);max-width:66ch}
+  a{color:var(--accent)}
+  .now{
+    display:flex;gap:28px;flex-wrap:wrap;align-items:flex-end;
+    border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;margin:26px 0 0;background:var(--panel);
+  }
+  .now .big{font-size:44px;font-weight:600;letter-spacing:-.03em;line-height:1}
+  .now .big small{font-size:15px;font-weight:400;color:var(--muted);margin-left:6px;letter-spacing:0}
+  .now .label{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);margin-bottom:8px}
+  .tiers{display:flex;gap:22px;flex-wrap:wrap}
+  .tier .v{font-size:19px;font-weight:600}
+  .tier .k{font-size:12px;color:var(--muted)}
+  .verdict{
+    margin:18px 0 0;padding:14px 18px;border-left:3px solid var(--accent);
+    background:var(--accent-soft);border-radius:0 var(--radius) var(--radius) 0;font-size:14px;
+  }
+  .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:14px 0 12px}
+  .toolbar .spacer{flex:1}
+  button{
+    font:inherit;font-size:13px;padding:6px 12px;border-radius:7px;cursor:pointer;
+    border:1px solid var(--line);background:var(--bg);color:var(--ink);
+  }
+  button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+  .grid-wrap{overflow-x:auto;padding-bottom:4px}
+  .grid{display:grid;grid-template-columns:44px repeat(24,minmax(20px,1fr));gap:3px;min-width:620px}
+  .grid .h{font-size:10px;color:var(--faint);text-align:center;align-self:end;padding-bottom:3px}
+  .grid .d{font-size:11px;color:var(--muted);align-self:center;white-space:nowrap}
+  .cell{aspect-ratio:1/1;border-radius:3px;min-height:18px}
+  .legend{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+  .scale{display:flex;gap:2px}
+  .scale i{width:18px;height:10px;border-radius:2px;display:block}
+  .bars{display:flex;align-items:flex-end;gap:2px;height:130px;margin-top:8px}
+  .bar{flex:1;background:var(--accent);opacity:.75;border-radius:2px 2px 0 0;min-height:2px;position:relative}
+  .bar-axis{display:flex;gap:2px;margin-top:5px;font-size:10px;color:var(--faint)}
+  .bar-axis span{flex:1;text-align:center}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:12px}
+  .card{border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;background:var(--panel)}
+  .card h3{margin:0 0 6px}
+  .card p{margin:0;font-size:13px;color:var(--muted)}
+  details{border-bottom:1px solid var(--line);padding:12px 0}
+  details summary{cursor:pointer;font-weight:600;font-size:14px;list-style:none}
+  details summary::-webkit-details-marker{display:none}
+  details summary::before{content:"+ ";color:var(--accent);font-weight:600}
+  details[open] summary::before{content:"– "}
+  details p{margin:8px 0 0;font-size:13.5px;color:var(--muted)}
+  footer{border-top:1px solid var(--line);margin-top:48px;padding:22px 0 40px;font-size:12.5px;color:var(--faint)}
+  code{font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--panel);padding:1px 5px;border-radius:4px}
+  @media (max-width:640px){
+    h1{font-size:23px}
+    .now .big{font-size:36px}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="brand">Gas<span>Clock</span></div>
+    <p>Ethereum gas, by the hour. No wallet, no signup, no tracking.</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <h1>When is Ethereum gas cheapest?</h1>
+  <p class="lede">
+    Every block on Ethereum publishes its base fee. We sample the last seven days of them and
+    line them up by hour of day and day of week, so you can stop guessing and just pick a cheap window.
+  </p>
+
+  <div class="now">
+    <div>
+      <div class="label">Base fee right now</div>
+      <div class="big" id="current">—<small>gwei</small></div>
+    </div>
+    <div class="tiers">
+      <div class="tier"><div class="k">Slow</div><div class="v" id="tier-low">—</div></div>
+      <div class="tier"><div class="k">Standard</div><div class="v" id="tier-mid">—</div></div>
+      <div class="tier"><div class="k">Fast</div><div class="v" id="tier-high">—</div></div>
+    </div>
+  </div>
+
+  <p class="verdict" id="verdict">Loading seven days of on-chain data…</p>
+
+  <h2>The 7-day heatmap</h2>
+  <div class="toolbar">
+    <button id="tz-utc" aria-pressed="true">UTC</button>
+    <button id="tz-local" aria-pressed="false">My timezone</button>
+    <div class="spacer"></div>
+    <span style="font-size:12px;color:var(--muted)" id="updated"></span>
+  </div>
+  <div class="grid-wrap"><div class="grid" id="grid"></div></div>
+  <div class="legend">
+    <span>cheaper</span>
+    <div class="scale" id="scale"></div>
+    <span>pricier</span>
+    <span style="margin-left:auto">average base fee per cell, gwei</span>
+  </div>
+
+  <h2>Average by hour</h2>
+  <div class="bars" id="bars"></div>
+  <div class="bar-axis" id="bar-axis"></div>
+  <p style="margin-top:14px;font-size:13px;color:var(--muted)" id="hour-note"></p>
+
+  <h2>How to use this</h2>
+  <div class="cards">
+    <div class="card">
+      <h3>Time your transactions</h3>
+      <p>Approvals, swaps, mints and contract deploys can wait. Queue them for a dark cell instead of paying peak prices.</p>
+    </div>
+    <div class="card">
+      <h3>Batch your work</h3>
+      <p>Ten cheap transactions still beat ten expensive ones, but one batched transaction beats both. Combine where the contract allows.</p>
+    </div>
+    <div class="card">
+      <h3>Check before you sign</h3>
+      <p>Base fee is the floor. Your wallet adds a priority tip on top — this page only tracks the base fee.</p>
+    </div>
+  </div>
+
+  <h2>Questions</h2>
+  <details>
+    <summary>What exactly is measured here?</summary>
+    <p>Ethereum's EIP-1559 base fee, in gwei, read directly from block headers via public JSON-RPC nodes. Roughly 670 blocks are sampled across the last seven days and averaged into each hour-of-day / day-of-week cell.</p>
+  </details>
+  <details>
+    <summary>Why does gas get expensive at certain hours?</summary>
+    <p>Base fee rises automatically when blocks get full. Activity clusters around US and European working hours, so late UTC morning through early afternoon tends to be the most expensive stretch. Weekends are usually quieter.</p>
+  </details>
+  <details>
+    <summary>Does this work for L2s?</summary>
+    <p>No. This tracks Ethereum mainnet only. Rollups like Base, Arbitrum and Optimism have their own fee markets, usually far cheaper, and are not reflected here.</p>
+  </details>
+  <details>
+    <summary>Is the data live?</summary>
+    <p>It refreshes on a schedule and the timestamp above the heatmap shows the last successful update. Nothing here is a price prediction — it is a summary of what already happened on-chain.</p>
+  </details>
+
+  <footer>
+    <p>
+      Data: Ethereum mainnet base fees via public JSON-RPC. Updated <span id="foot-updated">—</span>.
+      Open source. This page is informational only and is not financial advice.
+    </p>
+  </footer>
+
+</main>
+
+<script>
+const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+
+let DATA = null;
+let tzMode = "utc";
+
+function fmt(v, digits){
+  if (v === null || v === undefined) return "—";
+  return Number(v).toFixed(digits === undefined ? 2 : digits);
+}
+
+function heatColor(ratio, dark){
+  const hue = 158 - 158 * Math.min(1, Math.max(0, ratio));
+  const sat = 58;
+  const light = dark ? 44 : 46;
+  return "hsl(" + hue.toFixed(0) + " " + sat + "% " + light + "%)";
+}
+
+function isDark(){
+  return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+
+function buildScale(){
+  const scale = document.getElementById("scale");
+  const dark = isDark();
+  scale.innerHTML = "";
+  for (let i = 0; i < 8; i++){
+    const i2 = document.createElement("i");
+    i2.style.background = heatColor(i / 7, dark);
+    scale.appendChild(i2);
+  }
+}
+
+function percentileRanks(values){
+  const sorted = values.slice().sort(function(a,b){ return a - b; });
+  const n = sorted.length;
+  return function(v){
+    let lo = 0, hi = n;
+    while (lo < hi){
+      const mid = (lo + hi) >> 1;
+      if (sorted[mid] < v) lo = mid + 1; else hi = mid;
+    }
+    return n <= 1 ? 0.5 : lo / (n - 1);
+  };
+}
+
+function renderHeatmap(){
+  const grid = document.getElementById("grid");
+  const dark = isDark();
+  const offsetHours = tzMode === "local" ? -new Date().getTimezoneOffset() / 60 : 0;
+  const flat = [];
+  for (let d = 0; d < 7; d++){
+    for (let h = 0; h < 24; h++){
+      const v = DATA.heatmap[d][h];
+      if (v !== null && v !== undefined) flat.push(v);
+    }
+  }
+  const rank = percentileRanks(flat);
+
+  let html = "<div></div>";
+  for (let h = 0; h < 24; h++){
+    const shifted = ((h + offsetHours) % 24 + 24) % 24;
+    html += '<div class="h">' + (h % 3 === 0 ? String(shifted).padStart(2,"0") : "") + "</div>";
+  }
+
+  for (let d = 0; d < 7; d++){
+    html += '<div class="d">' + DAYS[d] + "</div>";
+    for (let h = 0; h < 24; h++){
+      const sourceHour = ((h - offsetHours) % 24 + 24) % 24;
+      let sourceDay = d;
+      if (offsetHours > 0 && h - offsetHours < 0) sourceDay = (d - 1 + 7) % 7;
+      if (offsetHours < 0 && h - offsetHours > 23) sourceDay = (d + 1) % 7;
+      const v = DATA.heatmap[sourceDay][sourceHour];
+      if (v === null || v === undefined){
+        html += '<div class="cell" style="background:var(--line)"></div>';
+        continue;
+      }
+      const bg = heatColor(rank(v), dark);
+      const label = DAYS[sourceDay] + " " + String(sourceHour).padStart(2,"0") + ":00 UTC — " + fmt(v,3) + " gwei";
+      html += '<div class="cell" style="background:' + bg + '" title="' + label + '"></div>';
+    }
+  }
+  grid.innerHTML = html;
+}
+
+function renderBars(){
+  const bars = document.getElementById("bars");
+  const axis = document.getElementById("bar-axis");
+  const values = DATA.hourly.filter(function(v){ return v !== null && v !== undefined; });
+  const max = Math.max.apply(null, values);
+  let html = "", ax = "";
+  for (let h = 0; h < 24; h++){
+    const v = DATA.hourly[h];
+    const pct = v === null || v === undefined ? 0 : Math.max(2, (v / max) * 100);
+    html += '<div class="bar" style="height:' + pct + '%" title="' +
+            String(h).padStart(2,"0") + ":00 UTC — " + fmt(v,3) + ' gwei"></div>';
+    ax += "<span>" + (h % 3 === 0 ? h : "") + "</span>";
+  }
+  bars.innerHTML = html;
+  axis.innerHTML = ax;
+}
+
+function renderVerdict(){
+  const c = DATA.cheapest, p = DATA.priciest;
+  const ratio = (p.avg_gwei / c.avg_gwei).toFixed(1);
+  document.getElementById("verdict").innerHTML =
+    "Cheapest window over the last " + DATA.window_days + " days: <strong>" +
+    DAYS[c.weekday] + " " + String(c.hour).padStart(2,"0") + ":00 UTC</strong> at " +
+    fmt(c.avg_gwei,3) + " gwei. Most expensive: <strong>" +
+    DAYS[p.weekday] + " " + String(p.hour).padStart(2,"0") + ":00 UTC</strong> at " +
+    fmt(p.avg_gwei,3) + " gwei — about <strong>" + ratio + "x</strong> more.";
+
+  document.getElementById("hour-note").innerHTML =
+    "Peak hour is " + String(DATA.priciest.hour).padStart(2,"0") +
+    ":00 UTC and the quietest is " + String(DATA.cheapest.hour).padStart(2,"0") +
+    ":00 UTC, averaged across all seven days. Based on " + DATA.sample_blocks +
+    " sampled blocks.";
+
+  document.getElementById("updated").textContent = "updated " + DATA.updated_at;
+  document.getElementById("foot-updated").textContent = DATA.updated_at;
+}
+
+function renderCurrent(){
+  const c = DATA.current;
+  document.getElementById("current").innerHTML =
+    fmt(c.recent_avg_gwei, 3) + "<small>gwei</small>";
+  document.getElementById("tier-low").textContent = fmt(c.low_gwei) + " gwei";
+  document.getElementById("tier-mid").textContent = fmt(c.medium_gwei) + " gwei";
+  document.getElementById("tier-high").textContent = fmt(c.high_gwei) + " gwei";
+}
+
+function renderAll(){
+  renderCurrent();
+  renderVerdict();
+  renderHeatmap();
+  renderBars();
+  buildScale();
+}
+
+document.getElementById("tz-utc").addEventListener("click", function(){
+  tzMode = "utc";
+  this.setAttribute("aria-pressed","true");
+  document.getElementById("tz-local").setAttribute("aria-pressed","false");
+  renderHeatmap();
+});
+
+document.getElementById("tz-local").addEventListener("click", function(){
+  tzMode = "local";
+  this.setAttribute("aria-pressed","true");
+  document.getElementById("tz-utc").setAttribute("aria-pressed","false");
+  renderHeatmap();
+});
+
+fetch("data/gas.json", {cache:"no-store"})
+  .then(function(r){ return r.json(); })
+  .then(function(json){ DATA = json; renderAll(); })
+  .catch(function(err){
+    document.getElementById("verdict").textContent =
+      "Could not load data/gas.json — " + err.message;
+  });
+
+if (window.matchMedia){
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function(){
+    if (DATA) renderAll();
+  });
+}
+</script>
+</body>
+</html>
